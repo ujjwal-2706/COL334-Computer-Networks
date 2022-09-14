@@ -2,17 +2,17 @@ import socket
 import threading
 import hashlib
 buffer_size = 2048
-total_clients = 5
+total_clients = 100
 DISTRIBUTION = 0
 FILE_DATA = {}
 COMPLETE = 0
 DONE = False
 TCP_server_ports = []
 for index in range(1,total_clients+1):
-    TCP_server_ports.append(index*1200 + 672)
+    TCP_server_ports.append(index*10 + 1672)
 client_TCP_ports = []
 for index in range(1,total_clients + 1):
-    client_TCP_ports.append(index*1200 + 335)
+    client_TCP_ports.append(index*10 + 1318)
 client_TCP_sockets = []
 for index in range(total_clients):
     tcp_socket = socket.socket(family=socket.AF_INET,type= socket.SOCK_STREAM)
@@ -21,10 +21,10 @@ for index in range(total_clients):
     client_TCP_sockets.append(tcp_socket)
 UDP_client_address = []
 for i in range(total_clients):
-    UDP_client_address.append(("127.0.0.1",i*1500 + 2608))
+    UDP_client_address.append(("127.0.0.1",i*10 + 2607))
 udp_ports_server = []
 for index in range(1,total_clients+1):
-    udp_ports_server.append(index*1200 + 315)
+    udp_ports_server.append(index*10 + 1315)
 
 udp_socket_list = []
 for index in range(total_clients):
@@ -114,6 +114,7 @@ def thread_function_udp(thread_number):
         chunk_id += 1
     with lock:
         COMPLETE += 1
+        print(COMPLETE," value")
         if COMPLETE == total_clients:
             DONE = True
 

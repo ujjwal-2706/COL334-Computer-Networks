@@ -1,27 +1,27 @@
 import socket
 import threading
-total_clients = 5
+total_clients = 100
 
 file = open('A2_small_file.txt','r')
 data_file = file.read()
 print(len(data_file))
 chunk_size = len(data_file) // total_clients
 chunks = []
-chunks.append(data_file[0:chunk_size])
-chunks.append(data_file[chunk_size:2*chunk_size])
-chunks.append(data_file[2*chunk_size:3*chunk_size])
-chunks.append(data_file[3*chunk_size:4*chunk_size])
-chunks.append(data_file[4*chunk_size:])
+for i in range(total_clients):
+    if i < total_clients-1 :
+        chunks.append(data_file[i*chunk_size :(i+1)*chunk_size])
+    else:
+        chunks.append(data_file[i*chunk_size:])
 file.close()
 
 buffer_size = 2048
 server_IP = "127.0.0.1"
 udp_ports_server = []
 for index in range(1,total_clients+1):
-    udp_ports_server.append(index*1200 + 315)
+    udp_ports_server.append(index*10 + 1315)
 tcp_ports = []
 for index in range(1,total_clients+1):
-    tcp_ports.append(index*1200 + 672)
+    tcp_ports.append(index*10 + 1672)
 tcp_sockets = []
 for i in range(total_clients):
     tcp_socket = socket.socket(family=socket.AF_INET,type= socket.SOCK_STREAM)
@@ -32,7 +32,7 @@ for i in range(total_clients):
 #ports where the clients will act as server
 client_TCP_ports = []
 for index in range(1,total_clients + 1):
-    client_TCP_ports.append(index*1200 + 335)
+    client_TCP_ports.append(index*10 + 1318)
 udp_socket_list = []
 
 print("Server Up")
