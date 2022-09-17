@@ -59,17 +59,18 @@ def fetch_data(client_id):
     return (chunk_data,id_map)
 
 def cache_update(client_id,local_client_data):
-    tcp_socket = client_TCP_sockets[client_id]
-    connection,addr_server = tcp_socket.accept()
-    chunk_id = int(connection.recv(buffer_size).decode())
+    udp_socket = udp_socket_list[client_id]
+    chunk_id = int((udp_socket.recvfrom(buffer_size))[0].decode())
+    # print(f"packet udp recv by client :{client_id} ")
+    TCPClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    TCPClientSocket.connect(('127.0.0.1',TCP_server_ports[client_id]))
     # print("cache update : ",client_id," ",chunk_id)
     if chunk_id in local_client_data:
         value = local_client_data[chunk_id]
         new_string = '$' + str(chunk_id) + ' ' + value
-        connection.send(str.encode(new_string))
+        TCPClientSocket.send(str.encode(new_string))
     else:
-        connection.send(str.encode('#'))
-    connection.close()
+        TCPClientSocket.send(str.encode('#'))
 
 def client_chunk_request(client_id,chunk_id,local_data_client):
     # if chunk_id not in local_data_client:
@@ -77,11 +78,15 @@ def client_chunk_request(client_id,chunk_id,local_data_client):
     server_addr = ('127.0.0.1',udp_ports_server[client_id])
     data = str.encode(str(chunk_id))
     udp_socket.sendto(data,server_addr)
-    TCPClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    TCPClientSocket.connect(('127.0.0.1',TCP_server_ports[client_id]))
-    msg_received = TCPClientSocket.recv(buffer_size)
+    # print(f'request sent to server by client {client_id} for {chunk_id}')
+    # TCPClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # TCPClientSocket.connect(('127.0.0.1',TCP_server_ports[client_id]))
+    tcp_socket = client_TCP_sockets[client_id]
+    connection,addr = tcp_socket.accept()
+    msg_received = connection.recv(buffer_size)
     chunk_id,chunk_value = break_message(msg_received.decode())
-    local_data_client[chunk_id] = chunk_value 
+    local_data_client[chunk_id] = chunk_value
+    connection.close() 
 
 def checkComplete(local_data_client):
     chunk_id = 0
