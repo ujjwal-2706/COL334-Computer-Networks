@@ -1,6 +1,7 @@
 import socket
 import threading
 import hashlib
+import time
 buffer_size = 2048
 total_clients = 5
 DISTRIBUTION = 0
@@ -42,8 +43,10 @@ def break_message(reply_server):
 #this function call will fetch the initial data chunks over TCP
 def fetch_data(client_id):
     udp_socket = udp_socket_list[client_id]
-    chunk_data = []
     id_map = {}
+    udp_socket.sendto(str.encode('y'),('127.0.0.1',udp_ports_server[client_id]))
+    value,addr = udp_socket.recvfrom(buffer_size)
+    total_size = int(value)
     while True:
         msg = 'y'
         msg = str.encode(msg)
@@ -53,18 +56,14 @@ def fetch_data(client_id):
         if reply == '#':
             break
         chunk_id,chunk_value = break_message(reply)
-        chunk_data.append(chunk_value)
         id_map[chunk_id] = chunk_value
-    print("chunk data is: ",client_id," ",len(''.join(chunk_data)))
-    return (chunk_data,id_map)
+    return (id_map,total_size)
 
 def cache_update(client_id,local_client_data):
     tcp_socket = client_TCP_sockets[client_id]
     connection, addr = tcp_socket.accept()
     chunk_id = int(connection.recv(buffer_size).decode())
     connection.close()
-    # print(f"packet udp recv by client :{client_id} ")
-    # print("cache update : ",client_id," ",chunk_id)
     udp_socket = udp_socket_list[client_id]
     if chunk_id in local_client_data:
         value = local_client_data[chunk_id]
@@ -75,14 +74,16 @@ def cache_update(client_id,local_client_data):
 
 def client_chunk_request(client_id,chunk_id,local_data_client):
     data = str.encode(str(chunk_id))
-    # print(f'request sent to server by client {client_id} for {chunk_id}')
     TCPClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     TCPClientSocket.connect(('127.0.0.1',TCP_server_ports[client_id]))
+    start_time = time.time()
     TCPClientSocket.send(data)
     udp_socket = udp_socket_list[client_id]
     msg_received,addr = udp_socket.recvfrom(buffer_size)
+    end_time = time.time()
     chunk_id,chunk_value = break_message(msg_received.decode())
     local_data_client[chunk_id] = chunk_value
+    # print(end_time - start_time)
 
 def checkComplete(local_data_client):
     chunk_id = 0
@@ -103,16 +104,17 @@ def thread_function_udp(thread_number):
     global FILE_DATA
     global COMPLETE
     global DONE
-    local_data_file = (fetch_data(thread_number))[1]
+    local_data_file,total_size = fetch_data(thread_number)
     chunk_id = 0
     with lock :
         DISTRIBUTION += 1
         FILE_DATA[thread_number] = local_data_file
-    # if 1 in FILE_DATA:
-    #     print("file: " ,FILE_DATA[1])
-    while not checkComplete(local_data_file):
+    while True:
         client_chunk_request(thread_number,chunk_id,local_data_file)
-        chunk_id += 1
+        if chunk_id in local_data_file:
+            chunk_id += 1
+        if chunk_id >= total_size-5 and checkComplete(local_data_file):
+            break
     with lock:
         COMPLETE += 1
         print(COMPLETE," value")
@@ -128,14 +130,9 @@ def thread_function_tcp(thread_number):
     global DONE
     while DISTRIBUTION < total_clients:
         val = 0
-    # print("Distribution done")
     while not DONE:
-        # print("file is woh : ",len(FILE_DATA))
         local_file = FILE_DATA[thread_number - total_clients]
-        # print(local_file)
         cache_update(thread_number - total_clients,local_file)
-        # print("loop: ",COMPLETE)
-    
 threads = []
 for i in range(2*total_clients):
     if i < total_clients:

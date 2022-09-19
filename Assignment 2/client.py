@@ -1,13 +1,13 @@
 import socket
 import threading
 import hashlib
+import time
 buffer_size = 2048
 total_clients = 5
 DISTRIBUTION = 0
 FILE_DATA = {}
 COMPLETE = 0
 DONE = False
-CHUNK_RECEIVED = [0 for i in range(total_clients)]
 TCP_server_ports = []
 for index in range(1,total_clients+1):
     TCP_server_ports.append(index*10 + 1672)
@@ -75,13 +75,17 @@ def client_chunk_request(client_id,chunk_id,local_data_client):
     udp_socket = udp_socket_list[client_id]
     server_addr = ('127.0.0.1',udp_ports_server[client_id])
     data = str.encode(str(chunk_id))
+    start_time = time.time()
     udp_socket.sendto(data,server_addr)
     tcp_socket = client_TCP_sockets[client_id]
     connection,addr = tcp_socket.accept()
     msg_received = connection.recv(buffer_size)
+    end_time = time.time()
     chunk_id,chunk_value = break_message(msg_received.decode())
     local_data_client[chunk_id] = chunk_value
-    connection.close() 
+    connection.close()
+    # print(f"Time for chunk request {chunk_id} by {client_id} is {end_time - start_time}")
+    # print(end_time - start_time) 
 
 def checkComplete(local_data_client):
     chunk_id = 0
@@ -102,7 +106,6 @@ def thread_function_udp(thread_number):
     global FILE_DATA
     global COMPLETE
     global DONE
-    global CHUNK_RECEIVED
     local_data_file,total_size = fetch_data(thread_number)
     chunk_id = 0
     with lock :
@@ -110,7 +113,8 @@ def thread_function_udp(thread_number):
         FILE_DATA[thread_number] = local_data_file
     while True:
         client_chunk_request(thread_number,chunk_id,local_data_file)
-        chunk_id += 1
+        if chunk_id in local_data_file:
+            chunk_id += 1
         if chunk_id >= total_size-5 and checkComplete(local_data_file):
             break
     with lock:
