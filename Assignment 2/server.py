@@ -1,10 +1,10 @@
 import socket
 import threading
-total_clients = 100
+total_clients = 5
 
 file = open('A2_small_file.txt','r')
 data_file = file.read()
-print(len(data_file))
+TOTAL_SIZE = len(data_file)
 chunk_size = len(data_file) // total_clients
 chunks = []
 for i in range(total_clients):
@@ -63,6 +63,8 @@ def server_communication(client_id,chunks):
     chunk_value = chunks[client_id]
     max_length = len(chunk_value)
     index = 0
+    connection.recv(buffer_size).decode()
+    connection.send(str.encode(str(TOTAL_SIZE//1000)))
     while index < len(chunks[client_id]):
         connection.recv(buffer_size).decode()
         packet_data = "$" + str(initial_chunk_id) + " " + chunk_value[index : min(index + 1000,max_length)]
@@ -77,15 +79,9 @@ def server_communication(client_id,chunks):
 def cache_update(client_id,chunk_id):
     global recent_activity
     #server will ask the client with client_id for chunk_id (but we will require a new socket for that)
-    # TCPClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # TCPClientSocket.connect(('127.0.0.1',client_TCP_ports[client_id]))
     id_packet = str.encode(str(chunk_id))
-    # TCPClientSocket.send(id_packet)
     udp_socket = udp_socket_list[client_id]
     udp_socket.sendto(id_packet,UDP_client_address[client_id])
-    # print(f"packet udp from server sent to client : {client_id} and chunk {chunk_id} ")
-    # packet_received = TCPClientSocket.recv(buffer_size).decode()
-    # print(packet_received)
     tcp_socket = tcp_sockets[client_id]
     connection,addr = tcp_socket.accept()
     packet_received = connection.recv(buffer_size).decode()
@@ -106,24 +102,6 @@ def cache_update(client_id,chunk_id):
         recent_activity += 1
     connection.close()
 
-def client_chunk_request(client_id):
-    udp_socket = udp_socket_list[client_id]
-    data_received = udp_socket.recvfrom(buffer_size)
-    chunk_id = int((data_received[0]).decode())
-    # print(f"request received UDP from client : {client_id} for chunk : {chunk_id} ")
-    msg = ""
-    for i in range(total_clients):
-        cache_update(i,chunk_id)
-    msg = str.encode(LRU_Cache[chunk_id][1])
-    # tcp_socket = tcp_sockets[client_id]
-    # connection,addr_client = tcp_socket.accept()
-    # connection.send(msg)
-    # connection.close()
-    TCPClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    TCPClientSocket.connect(('127.0.0.1',client_TCP_ports[client_id]))
-    TCPClientSocket.send(msg)
-
-
 lock = threading.Lock()
 def thread_function(thread_number):
     global lock
@@ -134,16 +112,11 @@ def thread_function(thread_number):
         udp_socket = udp_socket_list[client_id]
         data_received = udp_socket.recvfrom(buffer_size)
         chunk_id = int((data_received[0]).decode())
-        # print(f"request received UDP from client : {client_id} for chunk : {chunk_id} ")
         msg = ""
         for i in range(total_clients):
             with lock:
                 cache_update(i,chunk_id)
         msg = str.encode(LRU_Cache[chunk_id][1])
-        # tcp_socket = tcp_sockets[client_id]
-        # connection,addr_client = tcp_socket.accept()
-        # connection.send(msg)
-        # connection.close()
         TCPClientSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         TCPClientSocket.connect(('127.0.0.1',client_TCP_ports[client_id]))
         TCPClientSocket.send(msg)
@@ -154,10 +127,3 @@ for i in range(total_clients):
     threads.append(thread)
     thread.start()
 
-
-#--------------------------------------------------------------
-"""
-start with cache updatation function tomorrow
-then implement udp socket for request handling
-then complete the threads portion and hence part 1 will be done
-"""
